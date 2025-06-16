@@ -20,14 +20,15 @@ function App(): React.JSX.Element {
         backgroundColor={isDarkMode ? '#000' : '#fff'}
       />
       <WebView
-        //source={{ uri: 'https://5124-2806-261-49e-d3-a5ff-4773-8fd6-4cd1.ngrok-free.app' }}
         source={{ uri: 'https://felipe-test.mydomainfun.pro/' }}
         onReceivedSslError={(event: { nativeEvent: { handler: { proceed: () => void } } }) => {
           event.nativeEvent.handler.proceed(); // Bypass SSL error (DEV ONLY!)
         }}
-        style={styles.webview}
         javaScriptEnabled={true}
         domStorageEnabled={true}
+        thirdPartyCookiesEnabled={true}
+        sharedCookiesEnabled={true}
+        originWhitelist={['*']} 
         startInLoadingState={true}
         scalesPageToFit={true}
       />

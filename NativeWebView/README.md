@@ -1,97 +1,140 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# Passkey Login Support in Android WebView (Auth0 Universal Login)
 
-# Getting Started
+This document outlines the steps required to enable passkey (WebAuthn) login support in an Android React Native app using WebView with Auth0 Universal Login.
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+## Prerequisites
 
-## Step 1: Start Metro
+- React Native `0.79.0`
+- `react-native-webview` version `^13.13.5`
+- Android SDK and Android Studio installed
+- Auth0 application with Universal Login enabled and passkeys turned on
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+## Package.json Key Versions
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+Ensure the following relevant dependencies are present:
 
-```sh
-# Using npm
-npm start
-
-# OR using Yarn
-yarn start
+```json
+"dependencies": {
+  "@react-native/gradle-plugin": "^0.79.3",
+  "react": "19.0.0",
+  "react-native": "0.79.0",
+  "react-native-webview": "^13.13.5"
+}
 ```
 
-## Step 2: Build and run your app
+## Android WebView Configuration
 
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
+### WebView Usage in `App.tsx`
 
-### Android
-
-```sh
-# Using npm
-npm run android
-
-# OR using Yarn
-yarn android
+```tsx
+<WebView
+  source={{ uri: 'https://felipe-test.mydomainfun.pro/' }}
+  onReceivedSslError={(event) => event.nativeEvent.handler.proceed()}
+  style={{ flex: 1 }}
+  javaScriptEnabled={true}
+  domStorageEnabled={true}
+  startInLoadingState={true}
+  scalesPageToFit={true}
+/>
 ```
 
-### iOS
+### Custom WebViewManager (Optional for Explicit WebAuthn Enabling)
+If needed, you can create a `CustomWebViewManager.kt` to enable WebAuthn manually:
 
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
+```kotlin
+import android.webkit.WebSettings
+import android.webkit.WebView
+import androidx.webkit.WebSettingsCompat
+import androidx.webkit.WebViewFeature
+import com.facebook.react.uimanager.SimpleViewManager
+import com.facebook.react.uimanager.ThemedReactContext
 
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
+class CustomWebViewManager : SimpleViewManager<WebView>() {
+    override fun getName(): String = "CustomWebView"
 
-```sh
-bundle install
+    override fun createViewInstance(reactContext: ThemedReactContext): WebView {
+        val webView = WebView(reactContext)
+        val settings: WebSettings = webView.settings
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_AUTHENTICATION)) {
+            WebSettingsCompat.setWebAuthenticationSupport(settings, 1)
+        }
+        return webView
+    }
+}
 ```
 
-Then, and every time you update your native dependencies, run:
+Register it in `MainApplication.kt` under `getPackages()` if used.
 
-```sh
-bundle exec pod install
+## AndroidManifest.xml Setup
+
+Ensure the manifest includes the following:
+
+```xml
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <uses-permission android:name="android.permission.INTERNET" />
+  <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+  <uses-feature android:name="android.hardware.fingerprint" android:required="false" />
+
+  <application
+      android:name=".MainApplication"
+      android:hardwareAccelerated="true"
+      ...>
+
+    <activity
+        android:name=".MainActivity"
+        android:launchMode="singleTask"
+        android:hardwareAccelerated="true"
+        android:exported="true">
+
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN" />
+        <category android:name="android.intent.category.LAUNCHER" />
+      </intent-filter>
+
+      <intent-filter android:autoVerify="true">
+        <action android:name="android.intent.action.VIEW" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <category android:name="android.intent.category.BROWSABLE" />
+        <data android:scheme="https"
+              android:host="felipe-test.mydomainfun.pro"
+              android:pathPrefix="/" />
+      </intent-filter>
+
+    </activity>
+  </application>
+</manifest>
 ```
 
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
+## Digital Asset Links (DAL)
 
-```sh
-# Using npm
-npm run ios
+Host the `.well-known/assetlinks.json` file on your Auth0 custom domain to allow app association.
 
-# OR using Yarn
-yarn ios
+Example:
+```json
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "com.your.package",
+    "sha256_cert_fingerprints": ["YOUR_SHA256_FINGERPRINT"]
+  }
+}]
 ```
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+## Expected Behavior
 
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
+When navigating to your login page via WebView on Android, the Auth0 Universal Login will detect a compatible environment and display the “Use Passkey” option. On selection, it will trigger the native Android biometric/passkey dialog.
 
-## Step 3: Modify your app
+No additional native modules or third-party libraries are required.
 
-Now that you have successfully run the app, let's make changes!
+---
 
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
+### Troubleshooting
 
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
+- If WebAuthn option does not appear:
+  - Ensure device has a passkey or biometric setup
+  - Test in a release build (some debug builds disable secure context features)
+  - Ensure URL uses HTTPS and is listed in manifest `intent-filter`
+  - Check Chrome version (WebView must support WebAuthn)
 
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
-
-## Congratulations! :tada:
-
-You've successfully run and modified your React Native App. :partying_face:
-
-### Now what?
-
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
-
-# Troubleshooting
-
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+---

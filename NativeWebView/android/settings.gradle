@@ -1,6 +1,21 @@
-pluginManagement { includeBuild("../node_modules/@react-native/gradle-plugin") }
-plugins { id("com.facebook.react.settings") }
-extensions.configure(com.facebook.react.ReactSettingsExtension){ ex -> ex.autolinkLibrariesFromCommand() }
+// android/settings.gradle
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        google()
+        mavenCentral()
+    }
+}
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
 rootProject.name = 'NativeWebView'
-include ':app'
-includeBuild('../node_modules/@react-native/gradle-plugin')
+include(':app')
+
+apply from: '../node_modules/@react-native/gradle-plugin/settings-plugin/settings.gradle'
